@@ -1,0 +1,122 @@
+#include <DHT.h>  
+#include <ESP8266WiFi.h>
+String apiKey = "W9X8M1IPFO803O5B";     //  Enter your Write API key here
+const char *ssid =  "Arduino";     // Enter your WiFi Name
+const char *pass =  "project1"; // Enter your WiFi Password
+const char* server = "api.thingspeak.com";
+#define DHTPIN D3     
+#define Light D0
+#define Soil D6
+ DHT dht(DHTPIN, DHT11);
+WiFiClient client;
+
+#define A A0
+
+#include <LCD_I2C.h>
+
+LCD_I2C lcd(0x27, 16, 2); 
+ 
+
+void setup() 
+{
+   lcd.begin(); // If you are using more I2C devices using the Wire library use lcd.begin(false)
+                 // this stop the library(LCD_I2C) from calling Wire.begin()
+    lcd.backlight();
+    lcd.clear();
+     lcd.setCursor(0, 0); // Or setting the cursor in the desired position.
+    lcd.print("Smart Agriculture");
+    delay(500);
+
+       Serial.begin(9600); 
+       delay(10);
+       dht.begin();
+       Serial.println("Connecting to ");
+       Serial.println(ssid);
+       WiFi.begin(ssid, pass);
+       while (WiFi.status() != WL_CONNECTED) 
+     {
+            delay(550);
+            Serial.print(".");
+     }
+      Serial.println("");
+      Serial.println("WiFi connected");
+      delay(3000);
+}
+
+ 
+void loop() 
+{    
+
+  int C = analogRead(A);
+
+  
+      float h = dht.readHumidity();
+      float t = dht.readTemperature();
+      
+      int B = digitalRead(Light);
+      int D = digitalRead(Soil);
+             
+              if (isnan(h) || isnan(t)) 
+                 {
+                     Serial.println("Failed to read from DHT sensor!");
+                      return;
+                 }
+                         if (client.connect(server,80))   
+                      {  
+                             String postStr = apiKey;
+                             postStr +="&field1=";
+                             postStr += String(h);
+                             postStr +="&field2=";
+                             postStr += String(t);
+                             postStr +="&field3=";
+                             postStr += String(B);
+                             postStr +="&field4=";
+                             postStr += String(C);
+                             postStr +="&field5=";
+                             postStr += String(D);
+                             postStr += "\r\n\r\n\n\r\n";
+ 
+                             client.print("POST /update HTTP/1.1\n");
+                             client.print("Host: api.thingspeak.com\n");
+                             client.print("Connection: close\n");
+                             client.print("X-THINGSPEAKAPIKEY: "+apiKey+"\n");
+                             client.print("Content-Type: application/x-www-form-urlencoded\n");
+                             client.print("Content-Length: ");
+                             client.print(postStr.length());
+                             client.print("\n\n");
+                             client.print(postStr);
+                             Serial.print("Temperature: ");
+                             Serial.print(t,0);
+                             Serial.println("degrees Celcius:");
+                             Serial.print("Humidity:");  
+                             Serial.println(h,0);                 
+                             Serial.print("Volt: ");
+                             Serial.println(A);
+                             Serial.println("%. Send to Thingspeak.");  
+
+                              lcd.clear();
+     lcd.setCursor(0, 0); // Or setting the cursor in the desired position.
+    lcd.print("Hum=");
+    lcd.print(h);
+    lcd.setCursor(8, 0); // Or setting the cursor in the desired position.
+    lcd.print(" Temp=");
+    lcd.print(t);
+                         
+     lcd.setCursor(0, 1); // Or setting the cursor in the desired position.
+    lcd.print("Light=");
+    lcd.print(B);
+    delay(1000);
+    lcd.clear();
+    lcd.setCursor(0, 0); // Or setting the cursor in the desired position.
+    lcd.print(" AQI=");
+    lcd.print(C);
+   
+     lcd.setCursor(0, 1); // Or setting the cursor in the desired position.
+    lcd.print("Soil=");
+   
+delay(1000);
+                        }
+          client.stop();
+          Serial.println("Waiting...");
+          delay(1000);
+}
